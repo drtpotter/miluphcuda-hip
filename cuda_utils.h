@@ -28,21 +28,21 @@
 
 #ifndef NDEBUG
 #define cudaVerify(x) do {                                               \
-    cudaError_t __cu_result = x;                                         \
-    if (__cu_result!=cudaSuccess) {                                      \
+    hipError_t __cu_result = x;                                         \
+    if (__cu_result!=hipSuccess) {                                      \
       fprintf(stderr,"%s:%i: error: cuda function call failed:\n"        \
               "  %s;\nmessage: %s\n",                                    \
-              __FILE__,__LINE__,#x,cudaGetErrorString(__cu_result));     \
+              __FILE__,__LINE__,#x,hipGetErrorString(__cu_result));     \
       exit(1);                                                           \
     }                                                                    \
   } while(0)
 #define cudaVerifyKernel(x) do {                                         \
     x;                                                                   \
-    cudaError_t __cu_result = cudaGetLastError();                        \
-    if (__cu_result!=cudaSuccess) {                                      \
+    hipError_t __cu_result = hipGetLastError();                        \
+    if (__cu_result!=hipSuccess) {                                      \
       fprintf(stderr,"%s:%i: error: cuda function call failed:\n"        \
               "  %s;\nmessage: %s\n",                                    \
-              __FILE__,__LINE__,#x,cudaGetErrorString(__cu_result));     \
+              __FILE__,__LINE__,#x,hipGetErrorString(__cu_result));     \
       exit(1);                                                           \
     }                                                                    \
   } while(0)

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @author      Christoph Schaefer cm.schaefer@gmail.com and Thomas I. Maindl
  *
@@ -65,9 +66,9 @@ void backreaction_from_disk_to_point_masses(int calculate_nbody)
         return;
     }
 
-    cudaMalloc((void **) &g_x, h_blocksize*sizeof(double));
-    cudaMalloc((void **) &g_y, h_blocksize*sizeof(double));
-    cudaMalloc((void **) &g_z, h_blocksize*sizeof(double));
+    hipMalloc((void **) &g_x, h_blocksize*sizeof(double));
+    hipMalloc((void **) &g_y, h_blocksize*sizeof(double));
+    hipMalloc((void **) &g_z, h_blocksize*sizeof(double));
 
 
     for (n = 0; n < numberOfPointmasses; n++) {
@@ -78,15 +79,15 @@ void backreaction_from_disk_to_point_masses(int calculate_nbody)
 #if DEBUG_GRAVITY
         fprintf(stdout, "Calculating force from particles on star/planet no. %d\n", n);
 #endif
-        cudaVerifyKernel((particles_gravitational_feedback<<<h_blocksize, NUM_THREADS_REDUCTION>>>(n, g_x, g_y, g_z)));
-        cudaVerify(cudaDeviceSynchronize());
+        cudaVerifyKernel((hipLaunchKernelGGL(particles_gravitational_feedback, h_blocksize, NUM_THREADS_REDUCTION, 0, 0, n, g_x, g_y, g_z)));
+        cudaVerify(hipDeviceSynchronize());
 
     }
 
 
-    cudaFree(g_x);
-    cudaFree(g_y);
-    cudaFree(g_z);
+    hipFree(g_x);
+    hipFree(g_y);
+    hipFree(g_z);
 }
 
 

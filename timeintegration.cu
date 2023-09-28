@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @author      Christoph Schaefer cm.schaefer@gmail.com and Thomas I. Maindl
  *
@@ -171,39 +172,39 @@ void initIntegration()
 
     dt_host = timePerStep;
     // copy constants to device
-    cudaVerify(cudaMemcpyToSymbol(dt, &dt_host, sizeof(double)));
-    cudaVerify(cudaMemcpyToSymbol(dtmax, &param.maxtimestep, sizeof(double)));
-    cudaVerify(cudaMemcpyToSymbol(theta, &treeTheta, sizeof(double)));
-    cudaVerify(cudaMemcpyToSymbol(numParticles, &numberOfParticles, sizeof(int)));
-    cudaVerify(cudaMemcpyToSymbol(numPointmasses, &numberOfPointmasses, sizeof(int)));
-    cudaVerify(cudaMemcpyToSymbol(maxNumParticles, &maxNumberOfParticles, sizeof(int)));
-    cudaVerify(cudaMemcpyToSymbol(numRealParticles, &numberOfRealParticles, sizeof(int)));
-    cudaVerify(cudaMemcpyToSymbol(numChildren, &numberOfChildren, sizeof(int)));
-    cudaVerify(cudaMemcpyToSymbol(numNodes, &numberOfNodes, sizeof(int)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(dt), &dt_host, sizeof(double)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(dtmax), &param.maxtimestep, sizeof(double)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(theta), &treeTheta, sizeof(double)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(numParticles), &numberOfParticles, sizeof(int)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(numPointmasses), &numberOfPointmasses, sizeof(int)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(maxNumParticles), &maxNumberOfParticles, sizeof(int)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(numRealParticles), &numberOfRealParticles, sizeof(int)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(numChildren), &numberOfChildren, sizeof(int)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(numNodes), &numberOfNodes, sizeof(int)));
 
 #if FRAGMENTATION
-    cudaVerify(cudaMemcpyToSymbol(maxNumFlaws, &maxNumFlaws_host, sizeof(int)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(maxNumFlaws), &maxNumFlaws_host, sizeof(int)));
 #endif
     // memory for tree
-    cudaVerify(cudaMalloc((void**)&minxPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&maxxPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&minxPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxxPerBlock, sizeof(double)*numberOfMultiprocessors));
 #if DIM > 1
-    cudaVerify(cudaMalloc((void**)&minyPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&maxyPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&minyPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxyPerBlock, sizeof(double)*numberOfMultiprocessors));
 #endif
 #if DIM == 3
-    cudaVerify(cudaMalloc((void**)&minzPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&maxzPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&minzPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxzPerBlock, sizeof(double)*numberOfMultiprocessors));
 #endif
 
     // set the pointer on the gpu to p_device
-    cudaVerify(cudaMemcpyToSymbol(p, &p_device, sizeof(struct Particle)));
-    cudaVerify(cudaMemcpyToSymbol(p_rhs, &p_device, sizeof(struct Particle)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p), &p_device, sizeof(struct Particle)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p_rhs), &p_device, sizeof(struct Particle)));
 
-    cudaVerify(cudaMemcpyToSymbol(pointmass, &pointmass_device, sizeof(struct Pointmass)));
-    cudaVerify(cudaMemcpyToSymbol(pointmass_rhs, &pointmass_device, sizeof(struct Pointmass)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &pointmass_device, sizeof(struct Pointmass)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass_rhs), &pointmass_device, sizeof(struct Pointmass)));
 
-    cudaVerifyKernel((initializeSoundspeed<<<numberOfMultiprocessors*4, NUM_THREADS_512>>>()));
+    cudaVerifyKernel(hipLaunchKernelGGL(initializeSoundspeed, numberOfMultiprocessors*4, NUM_THREADS_512, 0, 0));
 }
 
 
@@ -211,11 +212,11 @@ void initIntegration()
 void afterIntegrationStep(void)
 {
 #if PARTICLE_ACCRETION
-    cudaVerifyKernel((ParticleSinking<<<numberOfMultiprocessors*4, NUM_THREADS_PRESSURE>>>()));
+    cudaVerifyKernel(hipLaunchKernelGGL(ParticleSinking, numberOfMultiprocessors*4, NUM_THREADS_PRESSURE, 0, 0));
 #endif
 
 #if MORE_OUTPUT
-	cudaVerifyKernel((get_extrema<<<numberOfMultiprocessors*4, NUM_THREADS_PRESSURE>>>()));
+	cudaVerifyKernel(hipLaunchKernelGGL(get_extrema, numberOfMultiprocessors*4, NUM_THREADS_PRESSURE, 0, 0));
 #endif
 }
 
@@ -226,15 +227,15 @@ void endIntegration(void)
     assert(0 == rc);
 
     // free memory
-    cudaVerify(cudaFree(minxPerBlock));
-    cudaVerify(cudaFree(maxxPerBlock));
+    cudaVerify(hipFree(minxPerBlock));
+    cudaVerify(hipFree(maxxPerBlock));
 #if DIM > 1
-    cudaVerify(cudaFree(minyPerBlock));
-    cudaVerify(cudaFree(maxyPerBlock));
+    cudaVerify(hipFree(minyPerBlock));
+    cudaVerify(hipFree(maxyPerBlock));
 #endif
 #if DIM == 3
-    cudaVerify(cudaFree(minzPerBlock));
-    cudaVerify(cudaFree(maxzPerBlock));
+    cudaVerify(hipFree(minzPerBlock));
+    cudaVerify(hipFree(maxzPerBlock));
 #endif
 
     cleanupMaterials();

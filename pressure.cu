@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @author      Oliver Wandel, Christoph Burger, Christoph Schaefer and Thomas I. Maindl
  *

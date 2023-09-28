@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @author      Christoph Schaefer cm.schaefer@gmail.com and Thomas I. Maindl
  *
@@ -2893,7 +2894,7 @@ void write_tree_to_file(File file) {
         exit(1);
     }
 
-    cudaMemcpyFromSymbol(&maxNodeIndex_host, maxNodeIndex, sizeof(int));
+    hipMemcpyFromSymbol(&maxNodeIndex_host, HIP_SYMBOL(maxNodeIndex), sizeof(int));
 
     // write to file
     for (i = numberOfParticles; i <= maxNodeIndex_host; i++) {
@@ -2944,7 +2945,7 @@ void copyToHostAndWriteToFile(int timestep, int lastTimestep)
 {
     int rc;
 
-    cudaVerify(cudaDeviceSynchronize());
+    cudaVerify(hipDeviceSynchronize());
 
     if (currentDiskIO) {
         if (param.verbose)
@@ -2957,133 +2958,133 @@ void copyToHostAndWriteToFile(int timestep, int lastTimestep)
 #if DEBUG_MISC
     fprintf(stdout, "calling pressure for i/o\n");
 #endif
-    cudaVerify(cudaDeviceSynchronize());
-	cudaVerifyKernel((calculatePressure<<<numberOfMultiprocessors * 4, NUM_THREADS_PRESSURE>>>()));
+    cudaVerify(hipDeviceSynchronize());
+	cudaVerifyKernel(hipLaunchKernelGGL(calculatePressure, numberOfMultiprocessors * 4, NUM_THREADS_PRESSURE, 0, 0));
 
 
     /* copy particle data back to host */
 #if GRAVITATING_POINT_MASSES
-    cudaVerify(cudaMemcpy(pointmass_host.x, pointmass_device.x, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.x, pointmass_device.x, memorySizeForPointmasses, hipMemcpyDeviceToHost));
 #if DIM > 1
-    cudaVerify(cudaMemcpy(pointmass_host.y, pointmass_device.y, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.y, pointmass_device.y, memorySizeForPointmasses, hipMemcpyDeviceToHost));
 #endif
-    cudaVerify(cudaMemcpy(pointmass_host.vx, pointmass_device.vx, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.vx, pointmass_device.vx, memorySizeForPointmasses, hipMemcpyDeviceToHost));
 #if DIM > 1
-    cudaVerify(cudaMemcpy(pointmass_host.vy, pointmass_device.vy, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.vy, pointmass_device.vy, memorySizeForPointmasses, hipMemcpyDeviceToHost));
 #endif
-    cudaVerify(cudaMemcpy(pointmass_host.ax, pointmass_device.ax, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.ax, pointmass_device.ax, memorySizeForPointmasses, hipMemcpyDeviceToHost));
 #if DIM > 1
-    cudaVerify(cudaMemcpy(pointmass_host.ay, pointmass_device.ay, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.ay, pointmass_device.ay, memorySizeForPointmasses, hipMemcpyDeviceToHost));
 #endif
 #if DIM == 3
-    cudaVerify(cudaMemcpy(pointmass_host.z, pointmass_device.z, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(pointmass_host.vz, pointmass_device.vz, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(pointmass_host.az, pointmass_device.az, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.z, pointmass_device.z, memorySizeForPointmasses, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.vz, pointmass_device.vz, memorySizeForPointmasses, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.az, pointmass_device.az, memorySizeForPointmasses, hipMemcpyDeviceToHost));
 #endif
-    cudaVerify(cudaMemcpy(pointmass_host.m, pointmass_device.m, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(pointmass_host.rmin, pointmass_device.rmin, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(pointmass_host.rmax, pointmass_device.rmax, memorySizeForPointmasses, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.m, pointmass_device.m, memorySizeForPointmasses, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.rmin, pointmass_device.rmin, memorySizeForPointmasses, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(pointmass_host.rmax, pointmass_device.rmax, memorySizeForPointmasses, hipMemcpyDeviceToHost));
 #endif // GRAVITATING_POINT_MASSES
 
-    cudaVerify(cudaMemcpy(p_host.x, p_device.x, memorySizeForTree, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.x, p_device.x, memorySizeForTree, hipMemcpyDeviceToHost));
 #if DIM > 1
-    cudaVerify(cudaMemcpy(p_host.y, p_device.y, memorySizeForTree, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.y, p_device.y, memorySizeForTree, hipMemcpyDeviceToHost));
 #endif
-    cudaVerify(cudaMemcpy(p_host.vx, p_device.vx, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.vx0, p_device.vx0, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.vx, p_device.vx, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.vx0, p_device.vx0, memorySizeForParticles, hipMemcpyDeviceToHost));
 #if DIM > 1
-    cudaVerify(cudaMemcpy(p_host.vy, p_device.vy, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.vy0, p_device.vy0, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.vy, p_device.vy, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.vy0, p_device.vy0, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
-    cudaVerify(cudaMemcpy(p_host.ax, p_device.ax, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.ax, p_device.ax, memorySizeForParticles, hipMemcpyDeviceToHost));
 #if DIM > 1
-    cudaVerify(cudaMemcpy(p_host.ay, p_device.ay, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.ay, p_device.ay, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
-    cudaVerify(cudaMemcpy(p_host.g_ax, p_device.g_ax, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.g_ax, p_device.g_ax, memorySizeForParticles, hipMemcpyDeviceToHost));
 #if DIM > 1
-    cudaVerify(cudaMemcpy(p_host.g_ay, p_device.g_ay, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.g_ay, p_device.g_ay, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
 #if DIM == 3
-    cudaVerify(cudaMemcpy(p_host.z, p_device.z, memorySizeForTree, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.vz, p_device.vz, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.vz0, p_device.vz0, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.az, p_device.az, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.g_az, p_device.g_az, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.z, p_device.z, memorySizeForTree, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.vz, p_device.vz, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.vz0, p_device.vz0, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.az, p_device.az, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.g_az, p_device.g_az, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
-    cudaVerify(cudaMemcpy(p_host.m, p_device.m, memorySizeForTree, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.depth, p_device.depth, memorySizeForInteractions, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.rho, p_device.rho, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.m, p_device.m, memorySizeForTree, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.depth, p_device.depth, memorySizeForInteractions, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.rho, p_device.rho, memorySizeForParticles, hipMemcpyDeviceToHost));
 #if INTEGRATE_DENSITY
-    cudaVerify(cudaMemcpy(p_host.drhodt, p_device.drhodt, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.drhodt, p_device.drhodt, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
-    cudaVerify(cudaMemcpy(p_host.h, p_device.h, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.materialId, p_device.materialId, memorySizeForInteractions, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.p, p_device.p, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.cs, p_device.cs, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.noi, p_device.noi, memorySizeForInteractions, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(interactions_host, interactions, memorySizeForInteractions*MAX_NUM_INTERACTIONS, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(childList_host, (void * )childListd, memorySizeForChildren, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.h, p_device.h, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.materialId, p_device.materialId, memorySizeForInteractions, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.p, p_device.p, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.cs, p_device.cs, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.noi, p_device.noi, memorySizeForInteractions, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(interactions_host, interactions, memorySizeForInteractions*MAX_NUM_INTERACTIONS, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(childList_host, (void * )childListd, memorySizeForChildren, hipMemcpyDeviceToHost));
 #if MORE_OUTPUT
-    cudaVerify(cudaMemcpy(p_host.p_min, p_device.p_min, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.p_max, p_device.p_max, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.rho_min, p_device.rho_min, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.rho_max, p_device.rho_max, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.e_min, p_device.e_min, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.e_max, p_device.e_max, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.cs_min, p_device.cs_min, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.cs_max, p_device.cs_max, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.p_min, p_device.p_min, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.p_max, p_device.p_max, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.rho_min, p_device.rho_min, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.rho_max, p_device.rho_max, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.e_min, p_device.e_min, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.e_max, p_device.e_max, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.cs_min, p_device.cs_min, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.cs_max, p_device.cs_max, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
 #if PALPHA_POROSITY
-    cudaVerify(cudaMemcpy(p_host.pold, p_device.pold, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.alpha_jutzi, p_device.alpha_jutzi, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.dalphadt, p_device.dalphadt, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.alpha_jutzi_old, p_device.alpha_jutzi_old, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.pold, p_device.pold, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.alpha_jutzi, p_device.alpha_jutzi, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.dalphadt, p_device.dalphadt, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.alpha_jutzi_old, p_device.alpha_jutzi_old, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
 #if SIRONO_POROSITY
-    cudaVerify(cudaMemcpy(p_host.compressive_strength, p_device.compressive_strength, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.tensile_strength, p_device.tensile_strength, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.K, p_device.K, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.rho_0prime, p_device.rho_0prime, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.rho_c_plus, p_device.rho_c_plus, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.rho_c_minus, p_device.rho_c_minus, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.shear_strength, p_device.shear_strength, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.flag_rho_0prime, p_device.flag_rho_0prime, memorySizeForInteractions, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.flag_plastic, p_device.flag_plastic, memorySizeForInteractions, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.compressive_strength, p_device.compressive_strength, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.tensile_strength, p_device.tensile_strength, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.K, p_device.K, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.rho_0prime, p_device.rho_0prime, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.rho_c_plus, p_device.rho_c_plus, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.rho_c_minus, p_device.rho_c_minus, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.shear_strength, p_device.shear_strength, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.flag_rho_0prime, p_device.flag_rho_0prime, memorySizeForInteractions, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.flag_plastic, p_device.flag_plastic, memorySizeForInteractions, hipMemcpyDeviceToHost));
 #endif
 
 #if EPSALPHA_POROSITY
-    cudaVerify(cudaMemcpy(p_host.alpha_epspor, p_device.alpha_epspor, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.epsilon_v, p_device.epsilon_v, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.alpha_epspor, p_device.alpha_epspor, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.epsilon_v, p_device.epsilon_v, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
 
 #if INTEGRATE_ENERGY
-    cudaVerify(cudaMemcpy(p_host.e, p_device.e, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.dedt, p_device.dedt, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.e, p_device.e, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.dedt, p_device.dedt, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
 #if JC_PLASTICITY
-    cudaVerify(cudaMemcpy(p_host.T, p_device.T, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.T, p_device.T, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
 #if NAVIER_STOKES
-    cudaVerify(cudaMemcpy(p_host.Tshear, p_device.Tshear, memorySizeForStress, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.Tshear, p_device.Tshear, memorySizeForStress, hipMemcpyDeviceToHost));
 #endif
 #if SOLID
-    cudaVerify(cudaMemcpy(p_host.S, p_device.S, memorySizeForStress, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.dSdt, p_device.dSdt, memorySizeForStress, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.local_strain, p_device.local_strain, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.ep, p_device.ep, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.S, p_device.S, memorySizeForStress, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.dSdt, p_device.dSdt, memorySizeForStress, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.local_strain, p_device.local_strain, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.ep, p_device.ep, memorySizeForParticles, hipMemcpyDeviceToHost));
 #endif
 #if FRAGMENTATION
-    cudaVerify(cudaMemcpy(p_host.d, p_device.d, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.dddt, p_device.dddt, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.numActiveFlaws, p_device.numActiveFlaws, memorySizeForInteractions, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.flaws, p_device.flaws, memorySizeForActivationThreshold, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.d, p_device.d, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.dddt, p_device.dddt, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.numActiveFlaws, p_device.numActiveFlaws, memorySizeForInteractions, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.flaws, p_device.flaws, memorySizeForActivationThreshold, hipMemcpyDeviceToHost));
 # if PALPHA_POROSITY
-    cudaVerify(cudaMemcpy(p_host.damage_porjutzi, p_device.damage_porjutzi, memorySizeForParticles, cudaMemcpyDeviceToHost));
-    cudaVerify(cudaMemcpy(p_host.ddamage_porjutzidt, p_device.ddamage_porjutzidt, memorySizeForParticles, cudaMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.damage_porjutzi, p_device.damage_porjutzi, memorySizeForParticles, hipMemcpyDeviceToHost));
+    cudaVerify(hipMemcpy(p_host.ddamage_porjutzidt, p_device.ddamage_porjutzidt, memorySizeForParticles, hipMemcpyDeviceToHost));
 # endif
 #endif
 
-    cudaVerify(cudaDeviceSynchronize());
+    cudaVerify(hipDeviceSynchronize());
 
     // write data to file
     pthread_attr_t attr;

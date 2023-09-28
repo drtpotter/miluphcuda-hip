@@ -21,6 +21,7 @@
  *
  */
 
+#include <hip/hip_runtime.h>
 #include <stdio.h>
 #include "device_tools.h"
 
@@ -96,9 +97,9 @@ void printfDeviceInformation(void)
  *********************************************************************** */
 {
     int i, device_count, driverVersion = 0, runtimeVersion = 0;
-    struct cudaDeviceProp prop;
+    hipDeviceProp_t prop;
 
-    cudaGetDeviceCount(&device_count);
+    hipGetDeviceCount(&device_count);
 
     if (device_count == 0) {
         printf("\nNo device(s) that support CUDA found!\n");
@@ -106,10 +107,10 @@ void printfDeviceInformation(void)
     }
 
     for (i = 0; i < device_count; i++) {   
-      //  cudaSetDevice(i);
-        cudaGetDeviceProperties(&prop, i);
-        cudaDriverGetVersion(&driverVersion);
-        cudaRuntimeGetVersion(&runtimeVersion);
+      //  hipSetDevice(i);
+        hipGetDeviceProperties(&prop, i);
+        hipDriverGetVersion(&driverVersion);
+        hipRuntimeGetVersion(&runtimeVersion);
 
         printf("\nGeneral Information for Device %d -- %s\n\n", i, prop.name);
         printf("  CUDA Driver Version:                           %d.%d\n", driverVersion/1000, (driverVersion%100)/10);
@@ -137,7 +138,7 @@ void printfDeviceInformation(void)
 
         /* if prop.major >= 3 set shared memory bank size to 8 byte */
         if (prop.major >= 3) {
-            cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
+            hipDeviceSetSharedMemConfig(hipSharedMemBankSizeEightByte);
             printf("  Shared memory bank size                        %d bytes\n", 8);
         }
         else {

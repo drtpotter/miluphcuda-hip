@@ -54,7 +54,7 @@
 #include "parameter.h"
 #include "io.h"
 #include "timeintegration.h"
-#include "cuda_profiler_api.h"
+#include "hip/hip_runtime_api.h"
 #include "checks.h"
 
 /// structure for sph particle

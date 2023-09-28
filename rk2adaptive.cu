@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @author      Christoph Schaefer cm.schaefer@gmail.com, Thomas I. Maindl, Christoph Burger
  *
@@ -70,42 +71,42 @@ void rk2Adaptive()
     double ts_smallest_rej = DBL_MAX;
     int approaching_output_time = FALSE;
 
-    cudaVerify(cudaMemcpyToSymbol(rk_epsrel_d, &param.rk_epsrel, sizeof(double)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(rk_epsrel_d), &param.rk_epsrel, sizeof(double)));
 
     // allocate mem
     double *maxPosAbsErrorPerBlock;
-    cudaVerify(cudaMalloc((void**)&maxPosAbsErrorPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxPosAbsErrorPerBlock, sizeof(double)*numberOfMultiprocessors));
 #if RK2_USE_VELOCITY_ERROR || RK2_USE_VELOCITY_ERROR_POINTMASSES
     double *maxVelAbsErrorPerBlock;
-    cudaVerify(cudaMalloc((void**)&maxVelAbsErrorPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxVelAbsErrorPerBlock, sizeof(double)*numberOfMultiprocessors));
 #endif
 #if RK2_USE_DENSITY_ERROR && INTEGRATE_DENSITY
     double *maxDensityAbsErrorPerBlock;
-    cudaVerify(cudaMalloc((void**)&maxDensityAbsErrorPerBlock , sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxDensityAbsErrorPerBlock , sizeof(double)*numberOfMultiprocessors));
 #endif
 #if RK2_USE_ENERGY_ERROR && INTEGRATE_ENERGY
     double *maxEnergyAbsErrorPerBlock;
-    cudaVerify(cudaMalloc((void**)&maxEnergyAbsErrorPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxEnergyAbsErrorPerBlock, sizeof(double)*numberOfMultiprocessors));
 #endif
 #if RK2_USE_COURANT_LIMIT
     double *courantPerBlock;
-    cudaVerify(cudaMalloc((void**)&courantPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&courantPerBlock, sizeof(double)*numberOfMultiprocessors));
 #endif
 #if RK2_USE_FORCES_LIMIT
     double *forcesPerBlock;
-    cudaVerify(cudaMalloc((void**)&forcesPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&forcesPerBlock, sizeof(double)*numberOfMultiprocessors));
 #endif
 #if RK2_USE_DAMAGE_LIMIT && FRAGMENTATION
     double *maxDamageTimeStepPerBlock;
-    cudaVerify(cudaMalloc((void**)&maxDamageTimeStepPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxDamageTimeStepPerBlock, sizeof(double)*numberOfMultiprocessors));
 #endif
 #if RK2_LIMIT_PRESSURE_CHANGE && PALPHA_POROSITY
     double *maxPressureAbsChangePerBlock;
-    cudaVerify(cudaMalloc((void**)&maxPressureAbsChangePerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxPressureAbsChangePerBlock, sizeof(double)*numberOfMultiprocessors));
 #endif
 #if RK2_LIMIT_ALPHA_CHANGE && PALPHA_POROSITY
     double *maxAlphaDiffPerBlock;
-    cudaVerify(cudaMalloc((void**)&maxAlphaDiffPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxAlphaDiffPerBlock, sizeof(double)*numberOfMultiprocessors));
 #endif
 
     // alloc mem for multiple rhs and copy immutables
@@ -120,12 +121,12 @@ void rk2Adaptive()
     }
 
     // set the symbol pointers
-    cudaVerify(cudaMemcpyToSymbol(rk, &rk_device, sizeof(struct Particle) * 3));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(rk), &rk_device, sizeof(struct Particle) * 3));
 #if GRAVITATING_POINT_MASSES
-    cudaVerify(cudaMemcpyToSymbol(rk_pointmass, &rk_pointmass_device, sizeof(struct Pointmass) * 3));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(rk_pointmass), &rk_pointmass_device, sizeof(struct Pointmass) * 3));
 #endif
 
-    cudaVerify(cudaDeviceSynchronize());
+    cudaVerify(hipDeviceSynchronize());
 
     int lastTimestep = startTimestep + numberOfTimesteps;
     int timestep;
@@ -135,13 +136,13 @@ void rk2Adaptive()
     double endTime = startTime;
     double substep_currentTime;
 
-    cudaVerify(cudaMemcpyToSymbol(currentTimeD, &currentTime, sizeof(double)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(currentTimeD), &currentTime, sizeof(double)));
 
     // loop over output steps
     for (timestep = startTimestep; timestep < lastTimestep; timestep++) {
         endTime += timePerStep;
         assert(endTime > currentTime);
-        cudaVerify(cudaMemcpyToSymbol(endTimeD, &endTime, sizeof(double)));
+        cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(endTimeD), &endTime, sizeof(double)));
         fprintf(stdout, "\n\nStart integrating output step %d / %d from time %g to %g...\n",
                 timestep+1, lastTimestep, currentTime, endTime);
 
@@ -170,7 +171,7 @@ void rk2Adaptive()
         }
         assert(dt_host > 0.0);
         assert(dt_host <= timePerStep);
-        cudaVerify(cudaMemcpyToSymbol(dt, &dt_host, sizeof(double)));
+        cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(dt), &dt_host, sizeof(double)));
         nsteps_cnt++;
 
         // checking for changes in angular momentum
@@ -196,52 +197,52 @@ void rk2Adaptive()
         while (currentTime < endTime) {
             // get the correct time
             substep_currentTime = currentTime;
-            cudaVerify(cudaMemcpyToSymbol(substep_currentTimeD, &substep_currentTime, sizeof(double)));
+            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(substep_currentTimeD), &substep_currentTime, sizeof(double)));
 
-            cudaVerify(cudaDeviceSynchronize());
+            cudaVerify(hipDeviceSynchronize());
 
             // copy particle data to first Runge Kutta step
             copy_particles_variables_device_to_device(&rk_device[RKFIRST], &p_device);
-            cudaVerify(cudaDeviceSynchronize());
+            cudaVerify(hipDeviceSynchronize());
 #if GRAVITATING_POINT_MASSES
             copy_pointmass_variables_device_to_device(&rk_pointmass_device[RKFIRST], &pointmass_device);
-            cudaVerify(cudaDeviceSynchronize());
+            cudaVerify(hipDeviceSynchronize());
 #endif
 
             // calculate first rhs, based on quantities in [RKFIRST]
-            cudaVerify(cudaMemcpyToSymbol(p, &rk_device[RKFIRST], sizeof(struct Particle)));
+            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p), &rk_device[RKFIRST], sizeof(struct Particle)));
 #if GRAVITATING_POINT_MASSES
-            cudaVerify(cudaMemcpyToSymbol(pointmass, &rk_pointmass_device[RKFIRST], sizeof(struct Pointmass)));
+            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &rk_pointmass_device[RKFIRST], sizeof(struct Pointmass)));
 #endif
             rightHandSide();
-            cudaVerify(cudaDeviceSynchronize());
+            cudaVerify(hipDeviceSynchronize());
 
 #if RK2_USE_COURANT_LIMIT
             /* limit timestep based on CFL condition, with dt ~ sml/cs */
-            cudaVerifyKernel((limitTimestepCourant<<<numberOfMultiprocessors, NUM_THREADS_LIMITTIMESTEP>>>(
-                                courantPerBlock)));
-            cudaVerify(cudaDeviceSynchronize());
-            cudaVerify(cudaMemcpyFromSymbol(&dt_new, dt, sizeof(double)));
+            cudaVerifyKernel(hipLaunchKernelGGL(limitTimestepCourant, numberOfMultiprocessors, NUM_THREADS_LIMITTIMESTEP, 0, 0, 
+                                courantPerBlock));
+            cudaVerify(hipDeviceSynchronize());
+            cudaVerify(hipMemcpyFromSymbol(&dt_new, HIP_SYMBOL(dt), sizeof(double)));
             if (param.verbose && dt_new < dt_host)
                 fprintf(stdout, "reducing coming timestep due to CFL condition from %g to %g (current time: %e)\n", dt_host, dt_new, currentTime);
             dt_host = dt_suggested = dt_new;
 #endif
 #if RK2_USE_FORCES_LIMIT
             /* limit timestep based on local forces/acceleration, with dt ~ sqrt(sml/a) */
-            cudaVerifyKernel((limitTimestepForces<<<numberOfMultiprocessors, NUM_THREADS_LIMITTIMESTEP>>>(
-                                forcesPerBlock)));
-            cudaVerify(cudaDeviceSynchronize());
-            cudaVerify(cudaMemcpyFromSymbol(&dt_new, dt, sizeof(double)));
+            cudaVerifyKernel(hipLaunchKernelGGL(limitTimestepForces, numberOfMultiprocessors, NUM_THREADS_LIMITTIMESTEP, 0, 0, 
+                                forcesPerBlock));
+            cudaVerify(hipDeviceSynchronize());
+            cudaVerify(hipMemcpyFromSymbol(&dt_new, HIP_SYMBOL(dt), sizeof(double)));
             if (param.verbose && dt_new < dt_host)
                 fprintf(stdout, "reducing coming timestep due to forces/accels from %g to %g (current time: %e)\n", dt_host, dt_new, currentTime);
             dt_host = dt_suggested = dt_new;
 #endif
 #if RK2_USE_DAMAGE_LIMIT && FRAGMENTATION
             /* limit timestep based on rate of damage change */
-            cudaVerifyKernel((limitTimestepDamage<<<numberOfMultiprocessors, NUM_THREADS_LIMITTIMESTEP>>>(
-                                maxDamageTimeStepPerBlock)));
-            cudaVerify(cudaDeviceSynchronize());
-            cudaVerify(cudaMemcpyFromSymbol(&dt_new, dt, sizeof(double)));
+            cudaVerifyKernel(hipLaunchKernelGGL(limitTimestepDamage, numberOfMultiprocessors, NUM_THREADS_LIMITTIMESTEP, 0, 0, 
+                                maxDamageTimeStepPerBlock));
+            cudaVerify(hipDeviceSynchronize());
+            cudaVerify(hipMemcpyFromSymbol(&dt_new, HIP_SYMBOL(dt), sizeof(double)));
             if (param.verbose && dt_new < dt_host)
                 fprintf(stdout, "reducing coming timestep due to damage evolution from %g to %g (current time: %e)\n", dt_host, dt_new, currentTime);
             dt_host = dt_suggested = dt_new;
@@ -260,16 +261,16 @@ void rk2Adaptive()
 
             // integrate with adaptive timestep and break loop once acceptable
             while (TRUE) {
-                cudaVerify(cudaDeviceSynchronize());
+                cudaVerify(hipDeviceSynchronize());
 
                 // compute
                 //    q_n + 0.5*h*k1
                 // and store quantities in [RKFIRST]
-                cudaVerifyKernel((integrateFirstStep<<<numberOfMultiprocessors, NUM_THREADS_RK2_INTEGRATE_STEP>>>()));
-                cudaVerify(cudaDeviceSynchronize());
+                cudaVerifyKernel(hipLaunchKernelGGL(integrateFirstStep, numberOfMultiprocessors, NUM_THREADS_RK2_INTEGRATE_STEP, 0, 0));
+                cudaVerify(hipDeviceSynchronize());
 
                 // check for SMALLEST_DT_ALLOWED
-                cudaVerify(cudaMemcpyFromSymbol(&dt_host, dt, sizeof(double)));
+                cudaVerify(hipMemcpyFromSymbol(&dt_host, HIP_SYMBOL(dt), sizeof(double)));
                 if (dt_host < SMALLEST_DT_ALLOWED && !approaching_output_time) {
                     fprintf(stderr, "Timestep %e is below SMALLEST_DT_ALLOWED. Stopping here.\n", dt_host);
                     exit(1);
@@ -278,19 +279,19 @@ void rk2Adaptive()
                 // get derivatives for second step (i.e., compute k2), based on quantities in [RKFIRST]
                 // this happens at t = t0 + h/2
                 substep_currentTime = currentTime + dt_host*0.5;
-                cudaVerify(cudaMemcpyToSymbol(substep_currentTimeD, &substep_currentTime, sizeof(double)));
-                cudaVerify(cudaMemcpyToSymbol(p, &rk_device[RKFIRST], sizeof(struct Particle)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(substep_currentTimeD), &substep_currentTime, sizeof(double)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p), &rk_device[RKFIRST], sizeof(struct Particle)));
 #if GRAVITATING_POINT_MASSES
-                cudaVerify(cudaMemcpyToSymbol(pointmass, &rk_pointmass_device[RKFIRST], sizeof(struct Pointmass)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &rk_pointmass_device[RKFIRST], sizeof(struct Pointmass)));
 #endif
                 rightHandSide();
-                cudaVerify(cudaDeviceSynchronize());
+                cudaVerify(hipDeviceSynchronize());
 
                 // compute
                 //    q_n - h*k1 + 2*h*k2
                 // and store quantities in [RKSECOND]
-                cudaVerifyKernel((integrateSecondStep<<<numberOfMultiprocessors, NUM_THREADS_RK2_INTEGRATE_STEP>>>()));
-                cudaVerify(cudaDeviceSynchronize());
+                cudaVerifyKernel(hipLaunchKernelGGL(integrateSecondStep, numberOfMultiprocessors, NUM_THREADS_RK2_INTEGRATE_STEP, 0, 0));
+                cudaVerify(hipDeviceSynchronize());
 
                 if (param.selfgravity) {
                     copy_gravitational_accels_device_to_device(&rk_device[RKSECOND], &rk_device[RKFIRST]);
@@ -298,28 +299,28 @@ void rk2Adaptive()
 
                 // get derivatives for the 3rd (and last) step (i.e., compute k3), based on quantities in [RKSECOND]
                 // this happens at t = t0 + h
-                cudaVerify(cudaMemcpyToSymbol(p, &rk_device[RKSECOND], sizeof(struct Particle)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p), &rk_device[RKSECOND], sizeof(struct Particle)));
 #if GRAVITATING_POINT_MASSES
-                cudaVerify(cudaMemcpyToSymbol(pointmass, &rk_pointmass_device[RKSECOND], sizeof(struct Pointmass)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &rk_pointmass_device[RKSECOND], sizeof(struct Pointmass)));
 #endif
                 substep_currentTime = currentTime + dt_host;
-                cudaVerify(cudaMemcpyToSymbol(substep_currentTimeD, &substep_currentTime, sizeof(double)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(substep_currentTimeD), &substep_currentTime, sizeof(double)));
                 rightHandSide();
-                cudaVerify(cudaDeviceSynchronize());
+                cudaVerify(hipDeviceSynchronize());
 
                 // compute
                 //    q_n+1^RK3  from k1, k2, k3 (which are stored in [RKSTART], [RKFIRST], [RKSECOND])
                 // and store quantities in p
-                cudaVerify(cudaMemcpyToSymbol(p, &p_device, sizeof(struct Particle)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p), &p_device, sizeof(struct Particle)));
 #if GRAVITATING_POINT_MASSES
-                cudaVerify(cudaMemcpyToSymbol(pointmass, &pointmass_device, sizeof(struct Pointmass)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &pointmass_device, sizeof(struct Pointmass)));
 #endif
-                cudaVerifyKernel((integrateThirdStep<<<numberOfMultiprocessors, NUM_THREADS_RK2_INTEGRATE_STEP>>>()));
-                cudaVerify(cudaDeviceSynchronize());
+                cudaVerifyKernel(hipLaunchKernelGGL(integrateThirdStep, numberOfMultiprocessors, NUM_THREADS_RK2_INTEGRATE_STEP, 0, 0));
+                cudaVerify(hipDeviceSynchronize());
 
                 // calculate errors
                 // following Stephen Oxley 1999, Modelling the Capture Theory for the Origin of Planetary Systems
-                cudaVerifyKernel((checkError<<<numberOfMultiprocessors, NUM_THREADS_ERRORCHECK>>>(
+                cudaVerifyKernel(hipLaunchKernelGGL(checkError, numberOfMultiprocessors, NUM_THREADS_ERRORCHECK, 0, 0, 
                                   maxPosAbsErrorPerBlock
 #if RK2_USE_VELOCITY_ERROR || RK2_USE_VELOCITY_ERROR_POINTMASSES
                                 , maxVelAbsErrorPerBlock
@@ -336,11 +337,11 @@ void rk2Adaptive()
 #if RK2_LIMIT_ALPHA_CHANGE && PALPHA_POROSITY
                                 , maxAlphaDiffPerBlock
 #endif
-                                )));
-                cudaVerify(cudaDeviceSynchronize());
-                cudaVerify(cudaMemcpyFromSymbol(&dt_suggested, dtNewErrorCheck, sizeof(double)));
-                cudaVerify(cudaMemcpyFromSymbol(&errorSmallEnough_host, errorSmallEnough, sizeof(int)));
-                cudaVerify(cudaDeviceSynchronize());
+                                ));
+                cudaVerify(hipDeviceSynchronize());
+                cudaVerify(hipMemcpyFromSymbol(&dt_suggested, HIP_SYMBOL(dtNewErrorCheck), sizeof(double)));
+                cudaVerify(hipMemcpyFromSymbol(&errorSmallEnough_host, HIP_SYMBOL(errorSmallEnough), sizeof(int)));
+                cudaVerify(hipDeviceSynchronize());
 
                 /* last timestep was okay, forward time and continue with new timestep */
                 if (errorSmallEnough_host) {
@@ -348,8 +349,8 @@ void rk2Adaptive()
                     if (!param.verbose) {
                         fprintf(stdout, "time: %e   last timestep: %g   time to next output: %e\n", currentTime, dt_host, endTime-currentTime);
                     }
-                    cudaVerifyKernel((BoundaryConditionsAfterIntegratorStep<<<numberOfMultiprocessors, NUM_THREADS_ERRORCHECK>>>(interactions)));
-                    cudaVerify(cudaDeviceSynchronize());
+                    cudaVerifyKernel(hipLaunchKernelGGL(BoundaryConditionsAfterIntegratorStep, numberOfMultiprocessors, NUM_THREADS_ERRORCHECK, 0, 0, interactions));
+                    cudaVerify(hipDeviceSynchronize());
                 }
 
                 /* update timestep statistics */
@@ -367,17 +368,17 @@ void rk2Adaptive()
                 /* print information about errors */
                 if (param.verbose) {
                     double errPos = 0.0, errVel = 0.0, errDensity = 0.0, errEnergy = 0.0;
-                    cudaVerify(cudaMemcpyFromSymbol(&errPos, maxPosAbsError, sizeof(double)));
+                    cudaVerify(hipMemcpyFromSymbol(&errPos, HIP_SYMBOL(maxPosAbsError), sizeof(double)));
 #if RK2_USE_VELOCITY_ERROR || RK2_USE_VELOCITY_ERROR_POINTMASSES
-                    cudaVerify(cudaMemcpyFromSymbol(&errVel, maxVelAbsError, sizeof(double)));
+                    cudaVerify(hipMemcpyFromSymbol(&errVel, HIP_SYMBOL(maxVelAbsError), sizeof(double)));
 #endif
 #if RK2_USE_DENSITY_ERROR && INTEGRATE_DENSITY
-                    cudaVerify(cudaMemcpyFromSymbol(&errDensity, maxDensityAbsError, sizeof(double)));
+                    cudaVerify(hipMemcpyFromSymbol(&errDensity, HIP_SYMBOL(maxDensityAbsError), sizeof(double)));
 #endif
 #if RK2_USE_ENERGY_ERROR && INTEGRATE_ENERGY
-                    cudaVerify(cudaMemcpyFromSymbol(&errEnergy, maxEnergyAbsError, sizeof(double)));
+                    cudaVerify(hipMemcpyFromSymbol(&errEnergy, HIP_SYMBOL(maxEnergyAbsError), sizeof(double)));
 #endif
-                    cudaVerify(cudaDeviceSynchronize());
+                    cudaVerify(hipDeviceSynchronize());
                     fprintf(stdout, "    with timestep: %g\n", dt_host);
                     fprintf(stdout, "    total max error (relative to eps): %g   (location: %g, velocity: %g, density: %g, energy: %g)\n",
                             max(max(max(errPos, errVel), errDensity), errEnergy) / param.rk_epsrel,
@@ -385,12 +386,12 @@ void rk2Adaptive()
 #if PALPHA_POROSITY
                     double errPressure = 0.0, errAlpha = 0.0;
 # if RK2_LIMIT_PRESSURE_CHANGE
-                    cudaVerify(cudaMemcpyFromSymbol(&errPressure, maxPressureAbsChange, sizeof(double)));
+                    cudaVerify(hipMemcpyFromSymbol(&errPressure, HIP_SYMBOL(maxPressureAbsChange), sizeof(double)));
 # endif
 # if RK2_LIMIT_ALPHA_CHANGE
-                    cudaVerify(cudaMemcpyFromSymbol(&errAlpha, maxAlphaDiff, sizeof(double)));
+                    cudaVerify(hipMemcpyFromSymbol(&errAlpha, HIP_SYMBOL(maxAlphaDiff), sizeof(double)));
 # endif
-                    cudaVerify(cudaDeviceSynchronize());
+                    cudaVerify(hipDeviceSynchronize());
                     fprintf(stdout, "    total max change (relative to max allowed): %g   (pressure: %g, alpha: %g)\n",
                             max(errPressure, errAlpha), errPressure, errAlpha);
 #endif
@@ -419,8 +420,8 @@ void rk2Adaptive()
                 }
 
                 /* tell the GPU the new timestep and the current time */
-                cudaVerify(cudaMemcpyToSymbol(currentTimeD, &currentTime, sizeof(double)));
-                cudaVerify(cudaMemcpyToSymbol(dt, &dt_host, sizeof(double)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(currentTimeD), &currentTime, sizeof(double)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(dt), &dt_host, sizeof(double)));
 
                 /* break loop if timestep was successful, otherwise set stage for next adaptive round */
                 if (errorSmallEnough_host) {
@@ -440,7 +441,7 @@ void rk2Adaptive()
                     copy_pointmass_variables_device_to_device(&rk_pointmass_device[RKFIRST], &rk_pointmass_device[RKSTART]);
                     copy_pointmass_derivatives_device_to_device(&rk_pointmass_device[RKFIRST], &rk_pointmass_device[RKSTART]);
 #endif
-                    cudaVerify(cudaDeviceSynchronize());
+                    cudaVerify(hipDeviceSynchronize());
                 }
             } // loop until error small enough
         } // current time < end time loop
@@ -454,9 +455,9 @@ void rk2Adaptive()
         // write results
 #if FRAGMENTATION
         // necessary because damage was limited only in rhs calls and not after integrating third step
-        cudaVerify(cudaDeviceSynchronize());
-        cudaVerifyKernel((damageLimit<<<numberOfMultiprocessors*4, NUM_THREADS_PC_INTEGRATOR>>>()));
-        cudaVerify(cudaDeviceSynchronize());
+        cudaVerify(hipDeviceSynchronize());
+        cudaVerifyKernel(hipLaunchKernelGGL(damageLimit, numberOfMultiprocessors*4, NUM_THREADS_PC_INTEGRATOR, 0, 0));
+        cudaVerify(hipDeviceSynchronize());
 #endif
         copyToHostAndWriteToFile(timestep, lastTimestep);
     } // timestep loop
@@ -478,30 +479,30 @@ void rk2Adaptive()
         free_pointmass_memory(&rk_pointmass_device[rkstep], free_immutables);
 #endif
     }
-    cudaVerify(cudaFree(maxPosAbsErrorPerBlock));
+    cudaVerify(hipFree(maxPosAbsErrorPerBlock));
 #if RK2_USE_VELOCITY_ERROR || RK2_USE_VELOCITY_ERROR_POINTMASSES
-    cudaVerify(cudaFree(maxVelAbsErrorPerBlock));
+    cudaVerify(hipFree(maxVelAbsErrorPerBlock));
 #endif
 #if RK2_USE_COURANT_LIMIT
-    cudaVerify(cudaFree(courantPerBlock));
+    cudaVerify(hipFree(courantPerBlock));
 #endif
 #if RK2_USE_FORCES_LIMIT
-    cudaVerify(cudaFree(forcesPerBlock));
+    cudaVerify(hipFree(forcesPerBlock));
 #endif
 #if RK2_USE_DAMAGE_LIMIT && FRAGMENTATION
-    cudaVerify(cudaFree(maxDamageTimeStepPerBlock));
+    cudaVerify(hipFree(maxDamageTimeStepPerBlock));
 #endif
 #if RK2_USE_ENERGY_ERROR && INTEGRATE_ENERGY
-    cudaVerify(cudaFree(maxEnergyAbsErrorPerBlock));
+    cudaVerify(hipFree(maxEnergyAbsErrorPerBlock));
 #endif
 #if RK2_USE_DENSITY_ERROR && INTEGRATE_DENSITY
-    cudaVerify(cudaFree(maxDensityAbsErrorPerBlock));
+    cudaVerify(hipFree(maxDensityAbsErrorPerBlock));
 #endif
 #if RK2_LIMIT_PRESSURE_CHANGE && PALPHA_POROSITY
-    cudaVerify(cudaFree(maxPressureAbsChangePerBlock));
+    cudaVerify(hipFree(maxPressureAbsChangePerBlock));
 #endif
 #if RK2_LIMIT_ALPHA_CHANGE && PALPHA_POROSITY
-    cudaVerify(cudaFree(maxAlphaDiffPerBlock));
+    cudaVerify(hipFree(maxAlphaDiffPerBlock));
 #endif
 }
 
@@ -1520,7 +1521,7 @@ void print_rk2_adaptive_settings()
 #endif
 #if PALPHA_POROSITY
 # if RK2_LIMIT_PRESSURE_CHANGE
-    cudaVerify(cudaMemcpyFromSymbol(&tmp, max_abs_pressure_change, sizeof(double)));
+    cudaVerify(hipMemcpyFromSymbol(&tmp, HIP_SYMBOL(max_abs_pressure_change), sizeof(double)));
     fprintf(stdout, "        pressure change: yes    (max allowed change: %g)\n", tmp);
 # else
     fprintf(stdout, "        pressure change: no\n");

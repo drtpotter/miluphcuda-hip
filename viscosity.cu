@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @author      Marius Morlock and Christoph Schaefer
  *

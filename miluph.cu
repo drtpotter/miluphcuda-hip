@@ -28,7 +28,7 @@
 #include "kernel.h"
 #include "little_helpers.h"
 #include "rk2adaptive.h"
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #if HDF5IO
 #include <hdf5.h>
@@ -746,7 +746,7 @@ int main(int argc, char *argv[])
             case 'd':
                 wanted_device = atoi(optarg);
                 fprintf(stdout, "Trying to use CUDA device %d\n", wanted_device);
-                cudaSetDevice(wanted_device);
+                hipSetDevice(wanted_device);
                 break;
             case 'g':
                 param.decouplegravity = TRUE;
@@ -1043,24 +1043,24 @@ int main(int argc, char *argv[])
     fprintf(stdout, "SPH kernel: ");
     if (0 == strcmp(param.kernel, "wendlandc2")) {
         fprintf(stdout, "wendlandc2\n");
-        cudaMemcpyFromSymbol(&kernel_h, wendlandc2_p, sizeof(SPH_kernel));
-        cudaMemcpyToSymbol(kernel, &kernel_h, sizeof(SPH_kernel));
+        hipMemcpyFromSymbol(&kernel_h, HIP_SYMBOL(wendlandc2_p), sizeof(SPH_kernel));
+        hipMemcpyToSymbol(HIP_SYMBOL(kernel), &kernel_h, sizeof(SPH_kernel));
     } else if (0 == strcmp(param.kernel, "wendlandc4")) {
         fprintf(stdout, "wendlandc4\n");
-        cudaMemcpyFromSymbol(&kernel_h, wendlandc4_p, sizeof(SPH_kernel));
-        cudaMemcpyToSymbol(kernel, &kernel_h, sizeof(SPH_kernel));
+        hipMemcpyFromSymbol(&kernel_h, HIP_SYMBOL(wendlandc4_p), sizeof(SPH_kernel));
+        hipMemcpyToSymbol(HIP_SYMBOL(kernel), &kernel_h, sizeof(SPH_kernel));
     } else if (0 == strcmp(param.kernel, "wendlandc6")) {
         fprintf(stdout, "wendlandc6\n");
-        cudaMemcpyFromSymbol(&kernel_h, wendlandc6_p, sizeof(SPH_kernel));
-        cudaMemcpyToSymbol(kernel, &kernel_h, sizeof(SPH_kernel));
+        hipMemcpyFromSymbol(&kernel_h, HIP_SYMBOL(wendlandc6_p), sizeof(SPH_kernel));
+        hipMemcpyToSymbol(HIP_SYMBOL(kernel), &kernel_h, sizeof(SPH_kernel));
     } else if (0 == strcmp(param.kernel, "cubic_spline")) {
         fprintf(stdout, "cubic_spline\n");
-        cudaMemcpyFromSymbol(&kernel_h, cubic_spline_p, sizeof(SPH_kernel));
-        cudaMemcpyToSymbol(kernel, &kernel_h, sizeof(SPH_kernel));
+        hipMemcpyFromSymbol(&kernel_h, HIP_SYMBOL(cubic_spline_p), sizeof(SPH_kernel));
+        hipMemcpyToSymbol(HIP_SYMBOL(kernel), &kernel_h, sizeof(SPH_kernel));
     } else if (0 == strcmp(param.kernel, "spiky")) {
         fprintf(stdout, "spiky\n");
-        cudaMemcpyFromSymbol(&kernel_h, spiky_p, sizeof(SPH_kernel));
-        cudaMemcpyToSymbol(kernel, &kernel_h, sizeof(SPH_kernel));
+        hipMemcpyFromSymbol(&kernel_h, HIP_SYMBOL(spiky_p), sizeof(SPH_kernel));
+        hipMemcpyToSymbol(HIP_SYMBOL(kernel), &kernel_h, sizeof(SPH_kernel));
     } else {
         fprintf(stderr, "Err. No such kernel function implemented yet: %s.\n", param.kernel);
         exit(1);
@@ -1100,10 +1100,10 @@ int main(int argc, char *argv[])
 
     // query GPU(s)
     fprintf(stdout, "\nChecking for cuda devices...\n");
-    cudaDeviceProp deviceProp;
+    hipDeviceProp_t deviceProp;
     int cnt;
-    cudaVerify(cudaGetDeviceProperties(&deviceProp, wanted_device));
-    cudaGetDeviceCount(&cnt);
+    cudaVerify(hipGetDeviceProperties(&deviceProp, wanted_device));
+    hipGetDeviceCount(&cnt);
     if ((deviceProp.major == 9999) && (deviceProp.minor == 9999)) {
         fprintf(stderr, "There is no CUDA capable device. Exiting...\n");
         exit(-1);
@@ -1138,7 +1138,7 @@ int main(int argc, char *argv[])
 
     // copy the particles to the GPU
     copy_particle_data_to_device();
-    if (cudaSuccess != cudaMemcpyToSymbol(childList, &childListd, sizeof(void*))) {
+    if (hipSuccess != hipMemcpyToSymbol(HIP_SYMBOL(childList), &childListd, sizeof(void*))) {
         fprintf(stderr, "copying of childList to device failed\n");
         exit(1);
     }
@@ -1206,15 +1206,15 @@ int main(int argc, char *argv[])
 
     // run the thing
     fprintf(stdout, "\n\nStarting time integration from start time %e...\n\n", startTime);
-    cudaProfilerStart();
+    hipProfilerStart();
     timeIntegration();
-    cudaProfilerStop();
+    hipProfilerStop();
     fprintf(stdout, "\nTime integration finished.\n\n");
 
     free_memory();
 
     fprintf(stdout, "Resetting GPU...\n");
-    cudaVerify(cudaDeviceReset());
+    cudaVerify(hipDeviceReset());
 
     fprintf(stdout, "\nkthxbye.\n");
 

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @author      Christoph Schaefer cm.schaefer@gmail.com and Thomas I. Maindl
  *
@@ -47,43 +48,43 @@ void rk4_nbodies()
 
     copy_pointmass_variables_device_to_device(&rk4_pointmass_device[RKFIRST], &pointmass_device);
     copy_pointmass_variables_device_to_device(&rk4_pointmass_device[RKSTART], &pointmass_device);
-    cudaVerify(cudaDeviceSynchronize());
+    cudaVerify(hipDeviceSynchronize());
 
     // calculate first right hand side with rk[RKFIRST]_device
-    cudaVerify(cudaMemcpyToSymbol(pointmass, &rk4_pointmass_device[RKFIRST], sizeof(struct Pointmass)));
-    cudaVerifyKernel((rhs_pointmass<<<numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP>>>()));
-    cudaVerify(cudaDeviceSynchronize());
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &rk4_pointmass_device[RKFIRST], sizeof(struct Pointmass)));
+    cudaVerifyKernel(hipLaunchKernelGGL(rhs_pointmass, numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP, 0, 0));
+    cudaVerify(hipDeviceSynchronize());
 
     // remember values of first step
     copy_pointmass_variables_device_to_device(&rk4_pointmass_device[RKSTART], &rk4_pointmass_device[RKFIRST]);
     copy_pointmass_derivatives_device_to_device(&rk4_pointmass_device[RKSTART], &rk4_pointmass_device[RKFIRST]);
-    cudaVerify(cudaDeviceSynchronize());
+    cudaVerify(hipDeviceSynchronize());
     // set rk[RKFIRST] variables
-    cudaVerifyKernel((rhs_pointmass<<<numberOfMultiprocessors,NUM_THREADS_RK4_INTEGRATE_STEP>>>()));
-    cudaVerifyKernel((rk4_integrateFirstStep<<<numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP>>>()));
-    cudaVerify(cudaDeviceSynchronize());
+    cudaVerifyKernel(hipLaunchKernelGGL(rhs_pointmass, numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP, 0, 0));
+    cudaVerifyKernel(hipLaunchKernelGGL(rk4_integrateFirstStep, numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP, 0, 0));
+    cudaVerify(hipDeviceSynchronize());
 
     // get derivatives for second step
-    cudaVerify(cudaMemcpyToSymbol(pointmass, &rk4_pointmass_device[RKFIRST], sizeof(struct Pointmass)));
-    cudaVerifyKernel((rhs_pointmass<<<numberOfMultiprocessors,NUM_THREADS_RK4_INTEGRATE_STEP>>>()));
-    cudaVerify(cudaDeviceSynchronize());
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &rk4_pointmass_device[RKFIRST], sizeof(struct Pointmass)));
+    cudaVerifyKernel(hipLaunchKernelGGL(rhs_pointmass, numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP, 0, 0));
+    cudaVerify(hipDeviceSynchronize());
     // rk4_integrate second step
-    cudaVerifyKernel((rk4_integrateSecondStep<<<numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP>>>()));
-    cudaVerify(cudaDeviceSynchronize());
+    cudaVerifyKernel(hipLaunchKernelGGL(rk4_integrateSecondStep, numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP, 0, 0));
+    cudaVerify(hipDeviceSynchronize());
 
     // get derivatives for third step
-    cudaVerify(cudaMemcpyToSymbol(pointmass, &rk4_pointmass_device[RKSECOND], sizeof(struct Pointmass)));
-    cudaVerifyKernel((rhs_pointmass<<<numberOfMultiprocessors,NUM_THREADS_RK4_INTEGRATE_STEP>>>()));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &rk4_pointmass_device[RKSECOND], sizeof(struct Pointmass)));
+    cudaVerifyKernel(hipLaunchKernelGGL(rhs_pointmass, numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP, 0, 0));
     // rk4_integrate third step
-    cudaVerifyKernel((rk4_integrateThirdStep<<<numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP>>>()));
+    cudaVerifyKernel(hipLaunchKernelGGL(rk4_integrateThirdStep, numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP, 0, 0));
 
     // get derivatives for the fourth (and last) step
     // this happens at t = t0 + h
-    cudaVerify(cudaMemcpyToSymbol(pointmass, &rk4_pointmass_device[RKTHIRD], sizeof(struct Pointmass)));
-    cudaVerifyKernel((rhs_pointmass<<<numberOfMultiprocessors,NUM_THREADS_RK4_INTEGRATE_STEP>>>()));
-    cudaVerify(cudaMemcpyToSymbol(pointmass, &pointmass_device, sizeof(struct Pointmass)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &rk4_pointmass_device[RKTHIRD], sizeof(struct Pointmass)));
+    cudaVerifyKernel(hipLaunchKernelGGL(rhs_pointmass, numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP, 0, 0));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &pointmass_device, sizeof(struct Pointmass)));
     // rk4_integrate fourth step
-    cudaVerifyKernel((rk4_integrateFourthStep<<<numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP>>>()));
+    cudaVerifyKernel(hipLaunchKernelGGL(rk4_integrateFourthStep, numberOfMultiprocessors, NUM_THREADS_RK4_INTEGRATE_STEP, 0, 0));
 }
 
 // acceleration due to the point masses

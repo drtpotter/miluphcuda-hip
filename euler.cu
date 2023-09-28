@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @author      Christoph Schaefer cm.schaefer@gmail.com
  *
@@ -129,13 +130,13 @@ void euler()
         double tmptimestep = param.maxtimestep;
         double endTime = startTime;
         currentTime = startTime;
-        cudaVerify(cudaMemcpyToSymbol(currentTimeD, &currentTime, sizeof(double)));
-        cudaVerify(cudaMemcpyToSymbol(dt, &tmptimestep, sizeof(double)));
+        cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(currentTimeD), &currentTime, sizeof(double)));
+        cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(dt), &tmptimestep, sizeof(double)));
 
         for (timestep = startTimestep; timestep < lastTimestep; timestep++) {
                 eulerstep = 0;
                 endTime += timePerStep;
-                cudaVerify(cudaMemcpyToSymbol(endTimeD, &endTime, sizeof(double)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(endTimeD), &endTime, sizeof(double)));
                 // checking for changes in angular momentum
                 if (param.angular_momentum_check > 0) {
                     double L_current = calculate_angular_momentum();
@@ -160,13 +161,13 @@ void euler()
                         rightHandSide();
                         if (currentTime + param.maxtimestep > endTime) {
                             tmptimestep = endTime - currentTime;
-                            cudaVerify(cudaMemcpyToSymbol(dt, &tmptimestep, sizeof(double)));
+                            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(dt), &tmptimestep, sizeof(double)));
                             currentTime += tmptimestep;
                         } else {
-                            cudaVerify(cudaMemcpyToSymbol(dt, &param.maxtimestep, sizeof(double)));
+                            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(dt), &param.maxtimestep, sizeof(double)));
                             currentTime += param.maxtimestep;
                         }
-                        cudaVerifyKernel((integrateEuler<<<numberOfMultiprocessors, NUM_THREADS_EULER_INTEGRATOR>>>()));
+                        cudaVerifyKernel(hipLaunchKernelGGL(integrateEuler, numberOfMultiprocessors, NUM_THREADS_EULER_INTEGRATOR, 0, 0));
 			//step was successful --> do something (e.g. look for min/max pressure...)
                     	afterIntegrationStep();
                 }

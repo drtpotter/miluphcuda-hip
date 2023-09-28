@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @author      Christoph Schaefer cm.schaefer@gmail.com
  *
@@ -643,18 +644,18 @@ void predictor_corrector_euler()
     int pressureChangeSmallEnough_host;
 
 
-    cudaVerify(cudaMalloc((void**)&courantPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&forcesPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&dtSPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&dtePerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&dtrhoPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&dtdamagePerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&dtalphaPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&dtbetaPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&maxpressureDiffPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&dtartviscPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&dtalpha_epsporPerBlock, sizeof(double)*numberOfMultiprocessors));
-    cudaVerify(cudaMalloc((void**)&dtepsilon_vPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&courantPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&forcesPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&dtSPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&dtePerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&dtrhoPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&dtdamagePerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&dtalphaPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&dtbetaPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&maxpressureDiffPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&dtartviscPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&dtalpha_epsporPerBlock, sizeof(double)*numberOfMultiprocessors));
+    cudaVerify(hipMalloc((void**)&dtepsilon_vPerBlock, sizeof(double)*numberOfMultiprocessors));
 
     int lastTimestep = startTimestep + numberOfTimesteps;
     int timestep;
@@ -670,12 +671,12 @@ void predictor_corrector_euler()
     allocate_particles_memory(&predictor_device, allocate_immutables);
     copy_particles_immutables_device_to_device(&predictor_device, &p_device);
     /* tell the gpu the current time */
-    cudaVerify(cudaMemcpyToSymbol(currentTimeD, &currentTime, sizeof(double)));
-    cudaVerify(cudaMemcpyToSymbol(predictor, &predictor_device, sizeof(struct Particle)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(currentTimeD), &currentTime, sizeof(double)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(predictor), &predictor_device, sizeof(struct Particle)));
 #if GRAVITATING_POINT_MASSES
     allocate_pointmass_memory(&predictor_pointmass_device, allocate_immutables);
     copy_pointmass_immutables_device_to_device(&predictor_pointmass_device, &pointmass_device);
-    cudaVerify(cudaMemcpyToSymbol(predictor_pointmass, &predictor_pointmass_device, sizeof(struct Pointmass)));
+    cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(predictor_pointmass), &predictor_pointmass_device, sizeof(struct Pointmass)));
 #endif
 
 
@@ -687,9 +688,9 @@ void predictor_corrector_euler()
         /* tell the gpu the time step */
         if (timePerStep > param.maxtimestep) {
             fprintf(stdout, "timestep was larger than maxtimestep given by -M, reducing to %e\n", param.maxtimestep);
-            cudaVerify(cudaMemcpyToSymbol(dt, &param.maxtimestep, sizeof(double)));
+            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(dt), &param.maxtimestep, sizeof(double)));
         } else {
-            cudaVerify(cudaMemcpyToSymbol(dt, &timePerStep, sizeof(double)));
+            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(dt), &timePerStep, sizeof(double)));
         }
 
 
@@ -714,36 +715,36 @@ void predictor_corrector_euler()
 
 
         /* tell the gpu the end time */
-        cudaVerify(cudaMemcpyToSymbol(endTimeD, &endTime, sizeof(double)));
+        cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(endTimeD), &endTime, sizeof(double)));
 
 		while (currentTime < endTime) {
-			cudaVerify(cudaDeviceSynchronize());
+			cudaVerify(hipDeviceSynchronize());
 			// calculate first right hand side with p_device
-	        cudaVerify(cudaMemcpyToSymbol(p, &p_device, sizeof(struct Particle)));
+	        cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p), &p_device, sizeof(struct Particle)));
 #if GRAVITATING_POINT_MASSES
-	        cudaVerify(cudaMemcpyToSymbol(pointmass, &pointmass_device, sizeof(struct Pointmass)));
+	        cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &pointmass_device, sizeof(struct Pointmass)));
 #endif
-            cudaVerify(cudaDeviceSynchronize());
-            cudaVerify(cudaMemcpyFromSymbol(&currentTime, currentTimeD, sizeof(double)));
+            cudaVerify(hipDeviceSynchronize());
+            cudaVerify(hipMemcpyFromSymbol(&currentTime, HIP_SYMBOL(currentTimeD), sizeof(double)));
             substep_currentTime = currentTime;
-            cudaVerify(cudaMemcpyToSymbol(substep_currentTimeD, &substep_currentTime, sizeof(double)));
+            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(substep_currentTimeD), &substep_currentTime, sizeof(double)));
             rightHandSide();
-            cudaVerify(cudaDeviceSynchronize());
-            cudaVerifyKernel((setTimestep_euler<<<numberOfMultiprocessors, NUM_THREADS_LIMITTIMESTEP>>>(
+            cudaVerify(hipDeviceSynchronize());
+            cudaVerifyKernel(hipLaunchKernelGGL(setTimestep_euler, numberOfMultiprocessors, NUM_THREADS_LIMITTIMESTEP, 0, 0, 
                               forcesPerBlock, courantPerBlock,
                               dtSPerBlock, dtePerBlock, dtrhoPerBlock, dtdamagePerBlock,
-                              dtalphaPerBlock, dtartviscPerBlock, dtbetaPerBlock, dtalpha_epsporPerBlock, dtepsilon_vPerBlock)));
-            cudaVerify(cudaDeviceSynchronize());
+                              dtalphaPerBlock, dtartviscPerBlock, dtbetaPerBlock, dtalpha_epsporPerBlock, dtepsilon_vPerBlock));
+            cudaVerify(hipDeviceSynchronize());
             /* get the time and the time step from the gpu */
-            cudaVerify(cudaMemcpyFromSymbol(&dt_host, dt, sizeof(double)));
+            cudaVerify(hipMemcpyFromSymbol(&dt_host, HIP_SYMBOL(dt), sizeof(double)));
             if (dt_host > param.maxtimestep) {
                 fprintf(stdout, "Recuding timestep from %e to -M maxtimestep %e\n", dt_host, param.maxtimestep);
                 dt_host = param.maxtimestep;
-                cudaVerify(cudaMemcpyToSymbol(dt, &dt_host, sizeof(double)));
+                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(dt), &dt_host, sizeof(double)));
             }
             substep_currentTime = currentTime + dt_host;
 
-			cudaVerify(cudaDeviceSynchronize());
+			cudaVerify(hipDeviceSynchronize());
             pressureChangeSmallEnough_host = FALSE;
             maxpressureDiff_cnt = 0;
             maxpressureDiff_host = 0;
@@ -751,12 +752,12 @@ void predictor_corrector_euler()
             while (pressureChangeSmallEnough_host == FALSE) {
 	            // do the predictor step (writes to predictor)
                 printf("Predictor step with time step: %e at time: %e.\n", dt_host, currentTime);
-	            cudaVerify(cudaMemcpyToSymbol(p, &p_device, sizeof(struct Particle)));
+	            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p), &p_device, sizeof(struct Particle)));
 #if GRAVITATING_POINT_MASSES
-	            cudaVerify(cudaMemcpyToSymbol(pointmass, &pointmass_device, sizeof(struct Pointmass)));
+	            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &pointmass_device, sizeof(struct Pointmass)));
 #endif
-    	        cudaVerifyKernel((PredictorStep_euler<<<numberOfMultiprocessors, NUM_THREADS_PC_INTEGRATOR>>>()));
-			    cudaVerify(cudaDeviceSynchronize());
+    	        cudaVerifyKernel(hipLaunchKernelGGL(PredictorStep_euler, numberOfMultiprocessors, NUM_THREADS_PC_INTEGRATOR, 0, 0));
+			    cudaVerify(hipDeviceSynchronize());
 
 
 #define DISABLE_PRESSURE_CHECK_POROSITY_FOR_THE_TIME_BEING 0
@@ -766,18 +767,18 @@ void predictor_corrector_euler()
 #if PALPHA_POROSITY
                 /* check if the step was too large */
                 /* check the pressure at predictor step */
-		        cudaVerify(cudaMemcpyToSymbol(p, &predictor_device, sizeof(struct Particle)));
+		        cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p), &predictor_device, sizeof(struct Particle)));
 #if GRAVITATING_POINT_MASSES
-	            cudaVerify(cudaMemcpyToSymbol(pointmass, &predictor_pointmass_device, sizeof(struct Pointmass)));
+	            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &predictor_pointmass_device, sizeof(struct Pointmass)));
 #endif
-				cudaVerifyKernel((calculatePressure<<<numberOfMultiprocessors * 4, NUM_THREADS_PRESSURE>>>()));
-    			cudaVerify(cudaDeviceSynchronize());
-			    cudaVerify(cudaMemcpyFromSymbol(&dt_host, dt, sizeof(double)));
+				cudaVerifyKernel(hipLaunchKernelGGL(calculatePressure, numberOfMultiprocessors * 4, NUM_THREADS_PRESSURE, 0, 0));
+    			cudaVerify(hipDeviceSynchronize());
+			    cudaVerify(hipMemcpyFromSymbol(&dt_host, HIP_SYMBOL(dt), sizeof(double)));
 				printf("before pressure change check: dt_host: %e\n", dt_host);
-				cudaVerifyKernel((pressureChangeCheck_euler<<<numberOfMultiprocessors, NUM_THREADS_PC_INTEGRATOR>>>(maxpressureDiffPerBlock)));
-    			cudaVerify(cudaDeviceSynchronize());
-                cudaVerify(cudaMemcpyFromSymbol(&pressureChangeSmallEnough_host, pressureChangeSmallEnough, sizeof(int)));
-                cudaVerify(cudaMemcpyFromSymbol(&maxpressureDiff_host, maxpressureDiff, sizeof(double)));
+				cudaVerifyKernel(hipLaunchKernelGGL(pressureChangeCheck_euler, numberOfMultiprocessors, NUM_THREADS_PC_INTEGRATOR, 0, 0, maxpressureDiffPerBlock));
+    			cudaVerify(hipDeviceSynchronize());
+                cudaVerify(hipMemcpyFromSymbol(&pressureChangeSmallEnough_host, HIP_SYMBOL(pressureChangeSmallEnough), sizeof(int)));
+                cudaVerify(hipMemcpyFromSymbol(&maxpressureDiff_host, HIP_SYMBOL(maxpressureDiff), sizeof(double)));
 #else
                 pressureChangeSmallEnough_host = TRUE;
 #endif // PALPHA_POROSITY
@@ -786,7 +787,7 @@ void predictor_corrector_euler()
 #endif // !DISABLE_PRESSURE_CHECK_POROSITY_FOR_THE_TIME_BEING
 
 
-			    cudaVerify(cudaMemcpyFromSymbol(&dt_host, dt, sizeof(double)));
+			    cudaVerify(hipMemcpyFromSymbol(&dt_host, HIP_SYMBOL(dt), sizeof(double)));
 				printf("after pressure change check: dt_host: %e\n", dt_host);
 				printf("pressureChangeSmallEnough_host: %d\n", pressureChangeSmallEnough_host);
 				if (pressureChangeSmallEnough_host == FALSE) {
@@ -805,23 +806,23 @@ void predictor_corrector_euler()
                     /* okay, step seems good, let's do the corrector step */
 					currentTime += dt_host;
 					printf("Timestep okay, doing corrector step.\n");
-					cudaVerify(cudaMemcpyToSymbol(currentTimeD, &currentTime, sizeof(double)));
+					cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(currentTimeD), &currentTime, sizeof(double)));
     	            if (param.selfgravity) {
         	            copy_gravitational_accels_device_to_device(&predictor_device, &p_device);
                     }
 
                     /* now righthandside with predictor variables */
-		            cudaVerify(cudaMemcpyToSymbol(p, &predictor_device, sizeof(struct Particle)));
+		            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p), &predictor_device, sizeof(struct Particle)));
 #if GRAVITATING_POINT_MASSES
-	                cudaVerify(cudaMemcpyToSymbol(pointmass, &predictor_pointmass_device, sizeof(struct Pointmass)));
+	                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &predictor_pointmass_device, sizeof(struct Pointmass)));
 #endif
 				    rightHandSide();
                     /* now the corrector step  with the original values of p_device and the derivatives of p_device and predictor_device */
-		            cudaVerify(cudaMemcpyToSymbol(p, &p_device, sizeof(struct Particle)));
+		            cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(p), &p_device, sizeof(struct Particle)));
 #if GRAVITATING_POINT_MASSES
-	                cudaVerify(cudaMemcpyToSymbol(pointmass, &pointmass_device, sizeof(struct Pointmass)));
+	                cudaVerify(hipMemcpyToSymbol(HIP_SYMBOL(pointmass), &pointmass_device, sizeof(struct Pointmass)));
 #endif
-    	            cudaVerifyKernel((CorrectorStep_euler<<<numberOfMultiprocessors, NUM_THREADS_PC_INTEGRATOR>>>()));
+    	            cudaVerifyKernel(hipLaunchKernelGGL(CorrectorStep_euler, numberOfMultiprocessors, NUM_THREADS_PC_INTEGRATOR, 0, 0));
 		    //step was successful --> do something (e.g. look for min/max pressure...)
                     afterIntegrationStep();
 
@@ -830,9 +831,9 @@ void predictor_corrector_euler()
 		} // current time < end time loop
 		// write results
 #if FRAGMENTATION
-        cudaVerify(cudaDeviceSynchronize());
-        cudaVerifyKernel((damageLimit<<<numberOfMultiprocessors*4, NUM_THREADS_PC_INTEGRATOR>>>()));
-        cudaVerify(cudaDeviceSynchronize());
+        cudaVerify(hipDeviceSynchronize());
+        cudaVerifyKernel(hipLaunchKernelGGL(damageLimit, numberOfMultiprocessors*4, NUM_THREADS_PC_INTEGRATOR, 0, 0));
+        cudaVerify(hipDeviceSynchronize());
 #endif
         copyToHostAndWriteToFile(timestep, lastTimestep);
 
@@ -845,16 +846,16 @@ void predictor_corrector_euler()
 #if GRAVITATING_POINT_MASSES
     free_pointmass_memory(&predictor_pointmass_device, free_immutables);
 #endif
-	cudaVerify(cudaFree(courantPerBlock));
-	cudaVerify(cudaFree(forcesPerBlock));
-    cudaVerify(cudaFree(dtSPerBlock));
-	cudaVerify(cudaFree(dtePerBlock));
-	cudaVerify(cudaFree(dtrhoPerBlock));
-	cudaVerify(cudaFree(dtdamagePerBlock));
-    cudaVerify(cudaFree(dtalphaPerBlock));
-    cudaVerify(cudaFree(dtbetaPerBlock));
-    cudaVerify(cudaFree(dtalpha_epsporPerBlock));
-    cudaVerify(cudaFree(dtepsilon_vPerBlock));
-    cudaVerify(cudaFree(dtartviscPerBlock));
-    cudaVerify(cudaFree(maxpressureDiffPerBlock));
+	cudaVerify(hipFree(courantPerBlock));
+	cudaVerify(hipFree(forcesPerBlock));
+    cudaVerify(hipFree(dtSPerBlock));
+	cudaVerify(hipFree(dtePerBlock));
+	cudaVerify(hipFree(dtrhoPerBlock));
+	cudaVerify(hipFree(dtdamagePerBlock));
+    cudaVerify(hipFree(dtalphaPerBlock));
+    cudaVerify(hipFree(dtbetaPerBlock));
+    cudaVerify(hipFree(dtalpha_epsporPerBlock));
+    cudaVerify(hipFree(dtepsilon_vPerBlock));
+    cudaVerify(hipFree(dtartviscPerBlock));
+    cudaVerify(hipFree(maxpressureDiffPerBlock));
 }

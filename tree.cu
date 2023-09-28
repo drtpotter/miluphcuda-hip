@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @author      Christoph Schaefer cm.schaefer@gmail.com and Thomas I. Maindl
  *
@@ -188,7 +189,8 @@ __global__ void buildTree()
 
 						// throw error if there aren't enough node indices available
 						if (newNodeIndex <= numParticles) {
-							printf("(thread %d): error during tree creation: not enough nodes. newNodeIndex %d, maxNodeIndex %d, numParticles: %d\n", threadIdx.x, newNodeIndex, maxNodeIndex, numParticles);
+                            int temp_x = threadIdx.x;
+							printf("(thread %d): error during tree creation: not enough nodes. newNodeIndex %d, maxNodeIndex %d, numParticles: %d\n", temp_x, newNodeIndex, maxNodeIndex, numParticles);
                             assert(0);
 						}
 
